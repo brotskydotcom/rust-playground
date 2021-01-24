@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+extern crate keyring;
 
-use url::Url;
+use std::error::Error;
 
-fn main() {
-    let uri = r#"https://example.com/products?page="2"&sort=desc&bool=true"#;
-    let pairs: HashMap<String, String> = Url::parse(uri)
-        .expect("Bad deactivation query string")
-        .query_pairs()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-    assert_eq!(pairs["page"], r#""2""#);
-    assert_eq!(pairs["sort"], "desc");
-    assert_eq!(pairs["bool"], "true");
+fn main() -> Result<(), Box<dyn Error>> {
+    let service = "Adobe App Info (UGhvdG9zaG9wMXt9MjAxODA3MjAwMw)";
+    let username = "App Info";
+
+    let keyring = keyring::Keyring::new(&service, &username);
+
+    let note = keyring.get_password()?;
+    println!("The note value is '{}'", note);
+
+    Ok(())
 }
