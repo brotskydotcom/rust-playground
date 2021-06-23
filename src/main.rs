@@ -1,15 +1,12 @@
-extern crate keyring;
-
+extern crate base64;
 use std::error::Error;
+use std::io::{self, Read};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let service = "Adobe App Info (UGhvdG9zaG9wMXt9MjAxODA3MjAwMw)";
-    let username = "App Info";
-
-    let keyring = keyring::Keyring::new(&service, &username);
-
-    let note = keyring.get_password()?;
-    println!("The note value is '{}'", note);
-
+    let mut buffer = String::new();
+    io::stdin().read_to_string(&mut buffer)?;
+    let bytes = buffer.trim().as_bytes();
+    let result = base64::encode_config(bytes, base64::URL_SAFE_NO_PAD);
+    print!("{}", result);
     Ok(())
 }
