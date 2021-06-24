@@ -1,26 +1,39 @@
-extern crate serde_json;
-use eyre::{Result, WrapErr};
-use serde::{Serialize, Deserialize};
+use hyper::{Client, Request, Uri, body::HttpBody};
+use hyper::client::HttpConnector;
+use hyper_proxy::{Proxy, ProxyConnector, Intercept};
+use headers::Authorization;
+use tokio::io::{stdout, AsyncWriteExt as _};
+use eyre::Result;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Request {
-    pub npd_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub precedence: Option<i32>,
-    pub os_name: String,
-}
+#[tokio::main]
+async fn main() -> Result<()> {
+    for url in ["http://jenna.brotsky.net", "https://brotsky.com"] {
+        println!("Url: {}", url);
+        let uri: Uri = url.parse().unwrap();
+        let mut req = Request::get(uri.clone()).body(hyper::Body::empty()).unwrap();
 
-fn main() -> Result<()> {
-    let input1 = r#" {"npdId": "abc", "osName": "def"} "#;
-    let r1: Request = serde_json::from_str(input1).wrap_err("Parse of input 1 failed")?;
-    println!("r1 precedence is {:?}", r1.precedence);
-    println!("r1 is {:?}", r1);
-    println!("r1 serialized is '{}'", serde_json::to_string(&r1).wrap_err("Can't serialize r1")?);
-    let input2 = r#" {"npdId": "abc", "precedence": 80, "osName": "def"} "#;
-    let r2: Request = serde_json::from_str(input2).wrap_err("Parse of input 2 failed")?;
-    println!("r2 precedence is {:?}", r2.precedence);
-    println!("r2 is {:?}", r2);
-    println!("r2 serialized is '{}'", serde_json::to_string(&r2).wrap_err("Can't serialize r1")?);
+        // make the proxy client
+        let proxy = {
+            let proxy_uri = "http://192.150.23.9:8080".parse().unwrap();
+            // let proxy_uri = "http://127.0.0.1:8888".parse().unwrap();
+            let mut proxy = Proxy::new(Intercept::All, proxy_uri);
+            if std::env::args().len() > 1 {
+                proxy.set_authorization(Authorization::basic("John Doe", "Agent1234"));
+            }
+            let connector = HttpConnector::new();
+            ProxyConnector::from_proxy(connector, proxy).unwrap()
+        };
+        // add any needed proxy headers the request (typically auth)
+        if let Some(headers) = proxy.http_headers(&uri) {
+            req.headers_mut().extend(headers.clone().into_iter());
+        }
+        // build the client against the proxy connector
+        let client = Client::builder().build(proxy);
+        let mut resp = client.request(req).await?;
+        println!("Response: {}", resp.status());
+        while let Some(chunk) = resp.body_mut().data().await {
+            stdout().write_all(&chunk?).await?;
+        }
+    }
     Ok(())
 }
