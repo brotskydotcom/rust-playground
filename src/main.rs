@@ -1,16 +1,16 @@
-use std::collections::HashMap;
+use warp::Filter;
 
-type QueryParams = HashMap<String, String>;
+type QueryParams = std::collections::HashMap<String, String>;
 
 #[tokio::main]
 async fn main() {
-    let query_string_prefixed = "?foo=bar&ab=a+b&cd=c%20d";
-    let query_string = "foo=bar&ab=a+b&cd=c%20d";
-    let query_prefixed: QueryParams =
-        serde_urlencoded::from_str(query_string_prefixed).expect("Couldn't parse with prefix");
-    let query: QueryParams =
-        serde_urlencoded::from_str(query_string).expect("Couldn't parse without prefix");
-    eprintln!("Query Prefixed: {:?}", query_prefixed);
-    eprintln!("Query: {:?}", query);
-    assert_eq!(query, query_prefixed);
+    let qf = warp::get().and(warp::query::<QueryParams>()).map(|q| {
+        eprintln!("Parsed: {:?}", q);
+        format!("Parsed: {:?}", q)
+    });
+    let rqf = warp::post().and(warp::filters::query::raw()).map(|q| {
+        eprintln!("Raw: {}", q);
+        format!("Raw: {}", q)
+    });
+    warp::serve(qf.or(rqf)).run(([127, 0, 0, 1], 3030)).await;
 }
