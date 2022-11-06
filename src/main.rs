@@ -12,5 +12,13 @@ async fn main() {
         eprintln!("Raw: {}", q);
         format!("Raw: {}", q)
     });
-    warp::serve(qf.or(rqf)).run(([127, 0, 0, 1], 3030)).await;
+    let handle = tokio::spawn(warp::serve(qf.or(rqf)).run(([127, 0, 0, 1], 3030)));
+    let client = reqwest::Client::builder().build().unwrap();
+    let request = client
+        .get("http://localhost:3030/query?this=is+a+test")
+        .build()
+        .unwrap();
+    let response = client.execute(request).await.unwrap();
+    eprintln!("Response: {:?}", response);
+    handle.abort();
 }
