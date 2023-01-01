@@ -1,29 +1,36 @@
-use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::{fs, io};
 
-const NGL_DIR: &str = "/Users/dbrotsky/Library/Logs/NGL";
-const OUT_FILE: &str = "/tmp/ngl-list.txt";
+const NGL_DIR: &str = "/Users/dbrotsky/Downloads/NGL";
+const OUT_FILE: &str = "/Users/dbrotsky/Downloads/NGL-list.csv";
 
 fn main() {
-    let result = fs::metadata(NGL_DIR).unwrap();
-    println!("Directory length is: {}MB", result.len() / (1024 * 1024));
+    let metadata = fs::metadata(NGL_DIR).unwrap();
+    println!("Directory length is: {}MB", metadata.len() / (1024 * 1024));
     let mut buf = File::create(OUT_FILE).unwrap();
-    for (i, file) in fs::read_dir(NGL_DIR).unwrap().enumerate() {
-        let file = file.unwrap();
+    writeln!(buf, "Index,Filename,Size (KB)").unwrap();
+    let mut count = 0;
+    for result in fs::read_dir(NGL_DIR).unwrap() {
+        let file = result.unwrap();
         writeln!(
             &mut buf,
-            "{}: {} ({}MB)",
-            i,
+            "{},{},{}",
+            count,
             file.file_name().to_str().unwrap(),
-            file.metadata().unwrap().len(),
+            file.metadata().unwrap().len() / 1024,
         )
         .unwrap();
-        if i > 0 && i % 100 == 0 {
-            print!(".")
+        count += 1;
+        if count % 100 == 0 {
+            print!(".");
+            io::stdout().flush().unwrap();
         }
-        if i % 8_000 == 0 {
-            println!("{}: ", i)
+        if count % 8_000 == 0 {
+            println!(" ({})", count)
         }
+    }
+    if count % 8000 != 0 {
+        println!(" ({})", count)
     }
 }
